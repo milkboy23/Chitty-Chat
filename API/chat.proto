@@ -1,12 +1,34 @@
 syntax = "proto3";
 option go_package = "/";
 
-message Students {
+message Server {
     repeated string students = 1;
 }
 
-message Empty {}
+message Client {
 
-service ITUDatabase {
-    rpc GetStudents (Empty) returns (Students) {};
+}
+
+message Chat{
+    
+}
+
+service Publish {
+    
+}
+
+service Receive{
+
+}
+
+service Broadcast{
+
+}
+
+service NewUser{
+
+}
+
+service DropOut{
+
 }
