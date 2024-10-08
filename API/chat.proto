@@ -1,20 +1,12 @@
 syntax = "proto3";
 option go_package = "/";
 
-message Server {
-    repeated string students = 1;
-}
-
-message Client {
-
-}
-
 message Chat{
-    
+
 }
 
 service Publish {
-    
+    rpc methods
 }
 
 service Receive{
