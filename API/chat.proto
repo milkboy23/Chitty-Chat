@@ -1,26 +1,25 @@
 syntax = "proto3";
 option go_package = "/";
 
-message Chat{
+message Empty {}
 
+message Chat {
+    string message = 1;
+    int32 timestamp = 2;
 }
 
-service Publish {
-    rpc methods
+message User {
+    int32 userId = 1;
+    int32 timestamp = 2;
 }
 
-service Receive{
-
+service Server {
+    rpc Broadcast (Chat) returns (Chat) {};
+    rpc NewUser (User) returns (Chat) {};
+    rpc DropOut (User) returns (Chat) {};
 }
 
-service Broadcast{
-
-}
-
-service NewUser{
-
-}
-
-service DropOut{
-
+service Client {
+    rpc Receive (Chat) returns (Chat) {};
+    rpc Publish (Chat) returns (Chat) {};
 }
