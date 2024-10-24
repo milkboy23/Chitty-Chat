@@ -21,7 +21,6 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	ChatService_JoinChat_FullMethodName         = "/ChatService/JoinChat"
 	ChatService_BroadcastMessage_FullMethodName = "/ChatService/BroadcastMessage"
-	ChatService_LeaveChat_FullMethodName        = "/ChatService/LeaveChat"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -30,7 +29,6 @@ const (
 type ChatServiceClient interface {
 	JoinChat(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Chat], error)
 	BroadcastMessage(ctx context.Context, in *Chat, opts ...grpc.CallOption) (*Empty, error)
-	LeaveChat(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type chatServiceClient struct {
@@ -70,23 +68,12 @@ func (c *chatServiceClient) BroadcastMessage(ctx context.Context, in *Chat, opts
 	return out, nil
 }
 
-func (c *chatServiceClient) LeaveChat(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (*Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, ChatService_LeaveChat_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
 type ChatServiceServer interface {
 	JoinChat(*UserRequest, grpc.ServerStreamingServer[Chat]) error
 	BroadcastMessage(context.Context, *Chat) (*Empty, error)
-	LeaveChat(context.Context, *UserRequest) (*Empty, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -102,9 +89,6 @@ func (UnimplementedChatServiceServer) JoinChat(*UserRequest, grpc.ServerStreamin
 }
 func (UnimplementedChatServiceServer) BroadcastMessage(context.Context, *Chat) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BroadcastMessage not implemented")
-}
-func (UnimplementedChatServiceServer) LeaveChat(context.Context, *UserRequest) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LeaveChat not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -156,24 +140,6 @@ func _ChatService_BroadcastMessage_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChatService_LeaveChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UserRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChatServiceServer).LeaveChat(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatService_LeaveChat_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).LeaveChat(ctx, req.(*UserRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -184,10 +150,6 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BroadcastMessage",
 			Handler:    _ChatService_BroadcastMessage_Handler,
-		},
-		{
-			MethodName: "LeaveChat",
-			Handler:    _ChatService_LeaveChat_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -4,6 +4,7 @@ import (
 	proto "Chitty-Chat/GRPC"
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -48,8 +49,6 @@ func startClient() (*grpc.ClientConn, proto.ChatServiceClient) {
 		log.Fatalf("Could not establish connection on port %s | %v", portString, connectionEstablishErr)
 	}
 
-	log.Printf("Client has been started on port %s", portString)
-
 	return connection, proto.NewChatServiceClient(connection)
 }
 
@@ -75,14 +74,15 @@ func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
 func listenToStream(stream proto.ChatService_JoinChatClient) {
 	for {
 		message, chatStreamErr := stream.Recv()
-		if chatStreamErr == io.EOF { // This is still broken and doesn't make any sense
+		if chatStreamErr == io.EOF || errors.Is(chatStreamErr, context.Canceled) {
 			log.Printf("Server closed the stream")
-			//programFinished <- true
+			programFinished <- true
 			return
 		}
 		if chatStreamErr != nil {
 			log.Fatalf("Error receiving message | %v", chatStreamErr)
 		}
+
 		log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
 	}
 }
@@ -98,22 +98,13 @@ func listenForInput(client proto.ChatServiceClient) {
 		}
 
 		if strings.ToLower(userInput) == "leave" {
-			leaveChat(client)
+			log.Print("Successfully left chat")
 			programFinished <- true
 			return
 		}
 
 		broadcastMessage(client, userInput)
 	}
-}
-
-func leaveChat(client proto.ChatServiceClient) {
-	user := &proto.UserRequest{Username: username, Timestamp: -1}
-	_, leaveErr := client.LeaveChat(context.Background(), user)
-	if leaveErr != nil {
-		log.Fatalf("Could not leave chat | %v", leaveErr)
-	}
-	log.Print("Successfully left chat")
 }
 
 func broadcastMessage(client proto.ChatServiceClient, userInput string) {
@@ -123,5 +114,4 @@ func broadcastMessage(client proto.ChatServiceClient, userInput string) {
 	if broadcastErr != nil {
 		log.Fatalf("Error Broadcasting Message | %v", broadcastErr)
 	}
-	log.Print("Successfully broadcast message")
 }

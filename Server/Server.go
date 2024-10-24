@@ -76,7 +76,7 @@ func (s *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatService_
 	s.broadcastMessage(joinMsg)
 	select {
 	case <-stream.Context().Done():
-		s.leaveChat(user.Username)
+		s.LeaveChat(user.Username)
 		return status.Error(codes.Canceled, "Stream was closed")
 	}
 }
@@ -87,12 +87,7 @@ func (s *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat) (*p
 	return &proto.Empty{}, nil
 }
 
-func (s *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest) (*proto.Empty, error) {
-	s.leaveChat(user.Username)
-	return &proto.Empty{}, nil
-}
-
-func (s *ChatServer) leaveChat(username string) {
+func (s *ChatServer) LeaveChat(username string) {
 	delete(s.clients, username)
 	// TEST IF CLIENT HAS ACTUALLY BEEN DELETED
 
