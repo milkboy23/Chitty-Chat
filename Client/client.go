@@ -20,7 +20,7 @@ const port = 5050
 var reader *bufio.Scanner
 var username string
 var programFinished = make(chan bool)
-var Timestamp = 0
+var Timestamp int32 = 0
 
 func main() {
 	getUsername()
@@ -33,7 +33,7 @@ func main() {
 
 	<-programFinished
 
-	closeClient(clientConnection)
+	closeClient(clientConnection, client)
 }
 
 func getUsername() {
@@ -44,6 +44,7 @@ func getUsername() {
 }
 
 func startClient() (*grpc.ClientConn, proto.ChatServiceClient) {
+	Timestamp++
 	portString := fmt.Sprintf(":%d", port)
 	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
 	connection, connectionEstablishErr := grpc.NewClient(portString, dialOptions)
@@ -54,21 +55,27 @@ func startClient() (*grpc.ClientConn, proto.ChatServiceClient) {
 	return connection, proto.NewChatServiceClient(connection)
 }
 
-func closeClient(connection *grpc.ClientConn) {
+func closeClient(connection *grpc.ClientConn, client proto.ChatServiceClient) {
 	connectionCloseErr := connection.Close()
 	if connectionCloseErr != nil {
 		log.Fatalf("Could not close connection | %v", connectionCloseErr)
 	}
-	log.Print("Client connection has been closed")
+	Timestamp++
+	user := proto.UserRequest{Username: username, Timestamp: Timestamp}
+	_, leaveErr := client.LeaveChat(context.Background(), &user)
+	if leaveErr != nil {
+		log.Fatalf("Could not leave chat | %v", leaveErr)
+	}
 }
 
 func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
-	user := proto.UserRequest{Username: username, Timestamp: -1}
+	Timestamp++
+	user := proto.UserRequest{Username: username, Timestamp: Timestamp}
 	chatStream, joinErr := client.JoinChat(context.Background(), &user)
 	if joinErr != nil {
 		log.Fatalf("Could not join chat | %v", joinErr)
 	}
-	log.Printf("Chat successfully joined as %s!", user.Username)
+	log.Printf("Chat successfully joined as %s at Lamport time %d", user.Username, Timestamp)
 
 	return chatStream
 }
