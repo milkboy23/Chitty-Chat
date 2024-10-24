@@ -93,6 +93,7 @@ func listenForInput(client proto.ChatServiceClient) {
 		userInput := reader.Text()
 
 		if len(userInput) <= 0 {
+			log.Print("Input was empty")
 			continue
 		}
 

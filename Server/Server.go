@@ -9,6 +9,8 @@ import (
 	"net"
 )
 
+const port = 5050
+
 type ChatServer struct {
 	proto.UnimplementedChatServiceServer
 	clients     map[string]*Client
@@ -20,32 +22,34 @@ type Client struct {
 	stream   proto.ChatService_JoinChatServer
 }
 
-func NewChatServer() *ChatServer {
-	return &ChatServer{
-		clients:     make(map[string]*Client),
-		lamportTime: 0,
-	}
-}
-
 func main() {
 	server := NewChatServer()
 	server.StartServer()
 }
 
+func NewChatServer() *ChatServer {
+	return &ChatServer{
+		clients:     make(map[string]*Client),
+		lamportTime: -1,
+	}
+}
+
 func (s *ChatServer) StartServer() {
-	listener, err := net.Listen("tcp", ":5050")
-	if err != nil {
-		log.Fatalf("Failed to listen on port 5050: %v", err)
+	portString := fmt.Sprintf(":%d", port)
+	listener, listenErr := net.Listen("tcp", portString)
+	if listenErr != nil {
+		log.Fatalf("Failed to listen on port %s | %v", portString, listenErr)
 	}
 
 	grpcServer := grpc.NewServer()
 	proto.RegisterChatServiceServer(grpcServer, s)
-	log.Printf("ChatServer is running.")
+	log.Print("ChatService server registered")
 
-	err = grpcServer.Serve(listener)
-	if err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+	serveListenerErr := grpcServer.Serve(listener)
+	if serveListenerErr != nil {
+		log.Fatalf("Failed to serve listener | %v", serveListenerErr)
 	}
+	log.Print("ChatService server has started")
 }
 
 func (s *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatService_JoinChatServer) error {
