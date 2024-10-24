@@ -48,7 +48,7 @@ func (server *ChatServer) StartServer() {
 
 	grpcServer := grpc.NewServer()
 	proto.RegisterChatServiceServer(grpcServer, server)
-	log.Print("ChatService server has started at time %d", server.lamportTime)
+	log.Printf("ChatService server has started at time %d", server.lamportTime)
 
 	serveListenerErr := grpcServer.Serve(listener)
 	if serveListenerErr != nil {
@@ -81,7 +81,6 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 	server.broadcastMessage(joinMsg)
 	select {
 	case <-stream.Context().Done():
-		//server.LeaveChat(user.Username)
 		return status.Error(codes.Canceled, "Stream was closed")
 	}
 }
@@ -113,7 +112,9 @@ func (server *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest
 }
 
 func (server *ChatServer) broadcastMessage(message *proto.Chat) {
-	log.Printf("Broadcasting message: '%d | %s: %s'", message.Timestamp, message.Username, message.Message)
+	server.lamportTime++
+	message.Timestamp = server.lamportTime
+	log.Printf("Broadcasting message at Lamport time %d: '%s: %s'", message.Timestamp, message.Username, message.Message)
 	for username, userConnection := range server.clients {
 		log.Printf("Sending to %s", username)
 

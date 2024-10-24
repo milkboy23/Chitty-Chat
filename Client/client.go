@@ -56,15 +56,16 @@ func startClient() (*grpc.ClientConn, proto.ChatServiceClient) {
 }
 
 func closeClient(connection *grpc.ClientConn, client proto.ChatServiceClient) {
-	connectionCloseErr := connection.Close()
-	if connectionCloseErr != nil {
-		log.Fatalf("Could not close connection | %v", connectionCloseErr)
-	}
+
 	Timestamp++
 	user := proto.UserRequest{Username: username, Timestamp: Timestamp}
 	_, leaveErr := client.LeaveChat(context.Background(), &user)
 	if leaveErr != nil {
 		log.Fatalf("Could not leave chat | %v", leaveErr)
+	}
+	connectionCloseErr := connection.Close()
+	if connectionCloseErr != nil {
+		log.Fatalf("Could not close connection | %v", connectionCloseErr)
 	}
 }
 
@@ -92,7 +93,10 @@ func listenToStream(stream proto.ChatService_JoinChatClient) {
 			log.Fatalf("Error receiving message | %v", chatStreamErr)
 		}
 
-		log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
+		maxTimestamp := max(message.Timestamp, Timestamp)
+		Timestamp = maxTimestamp + 1
+
+		log.Printf(" %s: %s", message.Username, message.Message)
 	}
 }
 
@@ -122,7 +126,8 @@ func listenForInput(client proto.ChatServiceClient) {
 }
 
 func broadcastMessage(client proto.ChatServiceClient, userInput string) {
-	message := &proto.Chat{Username: username, Message: userInput, Timestamp: -1}
+	Timestamp++
+	message := &proto.Chat{Username: username, Message: userInput, Timestamp: Timestamp}
 
 	_, broadcastErr := client.BroadcastMessage(context.Background(), message)
 	if broadcastErr != nil {
