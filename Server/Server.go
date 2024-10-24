@@ -81,7 +81,7 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 	server.broadcastMessage(joinMsg)
 	select {
 	case <-stream.Context().Done():
-		server.LeaveChat(user.Username)
+		//server.LeaveChat(user.Username)
 		return status.Error(codes.Canceled, "Stream was closed")
 	}
 }
@@ -92,16 +92,14 @@ func (server *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat
 	return &proto.Empty{}, nil
 }
 
-func (server *ChatServer) LeaveChat(username string) {
-
-	user := server.clients[username]
+func (server *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest) (*proto.Empty, error) {
 
 	maxTimestamp := max(user.Timestamp, server.lamportTime)
 	server.lamportTime = maxTimestamp + 1
 
-	delete(server.clients, username)
+	delete(server.clients, user.Username)
 
-	leaveMessage := fmt.Sprintf("User %s left the chat at Lamport time %d", username, server.lamportTime)
+	leaveMessage := fmt.Sprintf("User %s left the chat at Lamport time %d", user.Username, server.lamportTime)
 	log.Print(leaveMessage)
 
 	leaveMsg := &proto.Chat{
@@ -110,6 +108,8 @@ func (server *ChatServer) LeaveChat(username string) {
 		Timestamp: server.lamportTime,
 	}
 	server.broadcastMessage(leaveMsg)
+
+	return &proto.Empty{}, nil
 }
 
 func (server *ChatServer) broadcastMessage(message *proto.Chat) {
