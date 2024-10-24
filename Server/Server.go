@@ -3,7 +3,6 @@ package main
 import (
 	proto "Chitty-Chat/GRPC"
 	"context"
-	"errors"
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -37,7 +36,7 @@ func NewChatServer() *ChatServer {
 	}
 }
 
-func (s *ChatServer) StartServer() {
+func (server *ChatServer) StartServer() {
 	portString := fmt.Sprintf(":%d", port)
 	listener, listenErr := net.Listen("tcp", portString)
 	if listenErr != nil {
@@ -45,7 +44,7 @@ func (s *ChatServer) StartServer() {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterChatServiceServer(grpcServer, s)
+	proto.RegisterChatServiceServer(grpcServer, server)
 	log.Print("ChatService server has started")
 
 	serveListenerErr := grpcServer.Serve(listener)
@@ -54,16 +53,16 @@ func (s *ChatServer) StartServer() {
 	}
 }
 
-func (s *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatService_JoinChatServer) error {
-	_, userAlreadyJoined := s.clients[user.Username]
+func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatService_JoinChatServer) error {
+	_, userAlreadyJoined := server.clients[user.Username]
 	log.Printf("User %s is joining", user.Username)
 	if userAlreadyJoined {
 		log.Printf("User %s has already joined, ignoring...", user.Username)
 		return nil
 	}
 
-	newUserClient := &Client{stream: stream}
-	s.clients[user.Username] = newUserClient
+	newUserClient := &Client{username: user.Username, stream: stream}
+	server.clients[user.Username] = newUserClient
 
 	joinMessage := fmt.Sprintf("User %s has joined the chat", user.Username)
 	log.Print(joinMessage)
@@ -73,23 +72,22 @@ func (s *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatService_
 		Message:   joinMessage,
 		Timestamp: -1,
 	}
-	s.broadcastMessage(joinMsg)
+	server.broadcastMessage(joinMsg)
 	select {
 	case <-stream.Context().Done():
-		s.LeaveChat(user.Username)
+		server.LeaveChat(user.Username)
 		return status.Error(codes.Canceled, "Stream was closed")
 	}
 }
 
-func (s *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat) (*proto.Empty, error) {
-	s.broadcastMessage(chat)
+func (server *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat) (*proto.Empty, error) {
+	server.broadcastMessage(chat)
 
 	return &proto.Empty{}, nil
 }
 
-func (s *ChatServer) LeaveChat(username string) {
-	delete(s.clients, username)
-	// TEST IF CLIENT HAS ACTUALLY BEEN DELETED
+func (server *ChatServer) LeaveChat(username string) {
+	delete(server.clients, username)
 
 	leaveMessage := fmt.Sprintf("User %s left the chat", username)
 	log.Print(leaveMessage)
@@ -99,20 +97,15 @@ func (s *ChatServer) LeaveChat(username string) {
 		Message:   leaveMessage,
 		Timestamp: -1,
 	}
-	s.broadcastMessage(leaveMsg)
+	server.broadcastMessage(leaveMsg)
 }
 
-func (s *ChatServer) broadcastMessage(message *proto.Chat) {
+func (server *ChatServer) broadcastMessage(message *proto.Chat) {
 	log.Printf("Broadcasting message: '%d | %s: %s'", message.Timestamp, message.Username, message.Message)
-	for username, userConnection := range s.clients {
+	for username, userConnection := range server.clients {
 		log.Printf("Sending to %s", username)
 
 		sendErr := userConnection.stream.Send(message)
-		if errors.Is(sendErr, context.Canceled) {
-			log.Printf("Context canceled | %v", sendErr)
-			continue
-		}
-
 		if sendErr != nil {
 			log.Printf("Failed to send message to %s | %v", username, sendErr)
 			continue

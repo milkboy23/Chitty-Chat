@@ -92,8 +92,13 @@ func listenForInput(client proto.ChatServiceClient) {
 		reader.Scan()
 		userInput := reader.Text()
 
-		if len(userInput) <= 0 {
+		if len(userInput) == 0 {
 			log.Print("Input was empty")
+			continue
+		}
+
+		if len(userInput) >= 128 {
+			log.Print("Message is too long, limit is 128 characters")
 			continue
 		}
 
