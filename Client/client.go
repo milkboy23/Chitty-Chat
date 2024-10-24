@@ -6,12 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"io"
 	"log"
 	"os"
 	"strings"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const port = 5050
@@ -19,6 +20,7 @@ const port = 5050
 var reader *bufio.Scanner
 var username string
 var programFinished = make(chan bool)
+var Timestamp = 0
 
 func main() {
 	getUsername()
