@@ -2,9 +2,9 @@ syntax = "proto3";
 option go_package = "/";
 
 service ChatService {
-    rpc JoinChat (User) returns (stream Chat);
-    rpc BroadcastMessages (Chat) returns (Empty);
-    rpc LeaveChat (User) returns (Empty);
+    rpc JoinChat (UserRequest) returns (stream Chat);
+    rpc BroadcastMessage (Chat) returns (Empty);
+    rpc LeaveChat (UserRequest) returns (Empty);
 }
 
 message Chat {
@@ -13,7 +13,7 @@ message Chat {
     string message = 3;
 }
 
-message User {
+message UserRequest {
     string username = 1;
     int32 timestamp = 2;
 }

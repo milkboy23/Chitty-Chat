@@ -4,63 +4,84 @@ import (
 	proto "Chitty-Chat/GRPC"
 	"bufio"
 	"context"
+	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
-var username string
+const port = 5050
+
 var reader *bufio.Scanner
-var done = make(chan bool)
+var username string
+var programFinished = make(chan bool)
 
 func main() {
+	getUsername()
+
+	clientConnection, client := startClient()
+	chatStream := joinChat(client)
+
+	go listenToStream(chatStream)
+	go listenForInput(client)
+
+	<-programFinished
+
+	closeClient(clientConnection)
+}
+
+func getUsername() {
 	log.Print("Please enter a username:")
 	reader = bufio.NewScanner(os.Stdin)
 	reader.Scan()
 	username = reader.Text()
-
-	client := StartClient()
-	stream := joinChat(client)
-
-	go listenToStream(stream)
-	go listenForInput(client)
-
-	<-done
 }
 
-func StartClient() proto.ChatServiceClient {
-	conn, err := grpc.NewClient(":5050", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Could not connect: %v", err)
+func startClient() (*grpc.ClientConn, proto.ChatServiceClient) {
+	portString := fmt.Sprintf(":%d", port)
+	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
+	connection, connectionEstablishErr := grpc.NewClient(portString, dialOptions)
+	if connectionEstablishErr != nil {
+		log.Fatalf("Could not establish connection on port %s | %v", portString, connectionEstablishErr)
 	}
 
-	return proto.NewChatServiceClient(conn)
+	log.Printf("Client has been started on port %s", portString)
+
+	return connection, proto.NewChatServiceClient(connection)
+}
+
+func closeClient(connection *grpc.ClientConn) {
+	connectionCloseErr := connection.Close()
+	if connectionCloseErr != nil {
+		log.Fatalf("Could not close connection | %v", connectionCloseErr)
+	}
+	log.Print("Client connection has been closed")
 }
 
 func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
-	user := proto.User{Username: username, Timestamp: 0}
-
-	stream, err := client.JoinChat(context.Background(), &user)
-	if err != nil {
-		log.Fatalf("Could not join chat: %v", err)
+	user := proto.UserRequest{Username: username, Timestamp: -1}
+	chatStream, joinErr := client.JoinChat(context.Background(), &user)
+	if joinErr != nil {
+		log.Fatalf("Could not join chat | %v", joinErr)
 	}
 	log.Printf("Chat successfully joined as %s!", user.Username)
 
-	return stream
+	return chatStream
 }
 
 func listenToStream(stream proto.ChatService_JoinChatClient) {
 	for {
-		message, err := stream.Recv()
-		if err == io.EOF {
+		message, chatStreamErr := stream.Recv()
+		if chatStreamErr == io.EOF {
 			log.Printf("Server closed the stream")
-			//done <- true
-			return
+			//programFinished <- true
+			continue
 		}
-		if err != nil {
-			log.Fatalf("Error receiving message: %v", err)
+		if chatStreamErr != nil {
+			log.Fatalf("Error receiving message | %v", chatStreamErr)
 		}
 		log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
 	}
@@ -69,22 +90,31 @@ func listenToStream(stream proto.ChatService_JoinChatClient) {
 func listenForInput(client proto.ChatServiceClient) {
 	for {
 		reader.Scan()
-		input := reader.Text()
-		if len(input) > 0 {
-			if input == "leave" {
-				_, err := client.LeaveChat(context.Background(), &proto.User{Username: username})
-				if err != nil {
-					log.Fatalf("Could not leave chat: %v", err)
-				}
-				continue
-			}
+		userInput := reader.Text()
 
-			message := &proto.Chat{Username: username, Message: input, Timestamp: 0}
-			log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
-			_, err := client.BroadcastMessages(context.Background(), message)
-			if err != nil {
-				log.Fatalf("Error Broadcasting Messages: %v", err)
-			}
+		if len(userInput) <= 0 {
+			continue
 		}
+
+		if strings.ToLower(userInput) == "leave" {
+			user := &proto.UserRequest{Username: username, Timestamp: -1}
+			_, leaveErr := client.LeaveChat(context.Background(), user)
+			if leaveErr != nil {
+				log.Fatalf("Could not leave chat | %v", leaveErr)
+			}
+			log.Print("Successfully left chat")
+
+			programFinished <- true
+			return
+		}
+
+		message := &proto.Chat{Username: username, Message: userInput, Timestamp: -1}
+		log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
+
+		_, broadcastErr := client.BroadcastMessage(context.Background(), message)
+		if broadcastErr != nil {
+			log.Fatalf("Error Broadcasting Message | %v", broadcastErr)
+		}
+		log.Print("Successfully broadcast message")
 	}
 }

@@ -48,7 +48,7 @@ func (s *ChatServer) StartServer() {
 	}
 }
 
-func (s *ChatServer) JoinChat(user *proto.User, stream proto.ChatService_JoinChatServer) error {
+func (s *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatService_JoinChatServer) error {
 	if _, exists := s.clients[user.Username]; exists {
 		log.Printf("User %s has already joined.", user.Username)
 	} else {
@@ -68,14 +68,14 @@ func (s *ChatServer) JoinChat(user *proto.User, stream proto.ChatService_JoinCha
 	return nil
 }
 
-func (s *ChatServer) BroadcastMessages(ctx context.Context, chat *proto.Chat) (*proto.Empty, error) {
+func (s *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat) (*proto.Empty, error) {
 	log.Printf("%d | %s: %s", chat.Timestamp, chat.Username, chat.Message)
 	s.broadcastMessage(chat)
 
 	return &proto.Empty{}, nil
 }
 
-func (s *ChatServer) LeaveChat(ctx context.Context, user *proto.User) (*proto.Empty, error) {
+func (s *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest) (*proto.Empty, error) {
 	delete(s.clients, user.Username)
 
 	leaveMessage := fmt.Sprintf("User %s left the chat.", user.Username)

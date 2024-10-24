@@ -19,18 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_JoinChat_FullMethodName          = "/ChatService/JoinChat"
-	ChatService_BroadcastMessages_FullMethodName = "/ChatService/BroadcastMessages"
-	ChatService_LeaveChat_FullMethodName         = "/ChatService/LeaveChat"
+	ChatService_JoinChat_FullMethodName         = "/ChatService/JoinChat"
+	ChatService_BroadcastMessage_FullMethodName = "/ChatService/BroadcastMessage"
+	ChatService_LeaveChat_FullMethodName        = "/ChatService/LeaveChat"
 )
 
 // ChatServiceClient is the client API for ChatService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChatServiceClient interface {
-	JoinChat(ctx context.Context, in *User, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Chat], error)
-	BroadcastMessages(ctx context.Context, in *Chat, opts ...grpc.CallOption) (*Empty, error)
-	LeaveChat(ctx context.Context, in *User, opts ...grpc.CallOption) (*Empty, error)
+	JoinChat(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Chat], error)
+	BroadcastMessage(ctx context.Context, in *Chat, opts ...grpc.CallOption) (*Empty, error)
+	LeaveChat(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type chatServiceClient struct {
@@ -41,13 +41,13 @@ func NewChatServiceClient(cc grpc.ClientConnInterface) ChatServiceClient {
 	return &chatServiceClient{cc}
 }
 
-func (c *chatServiceClient) JoinChat(ctx context.Context, in *User, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Chat], error) {
+func (c *chatServiceClient) JoinChat(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Chat], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_JoinChat_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[User, Chat]{ClientStream: stream}
+	x := &grpc.GenericClientStream[UserRequest, Chat]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -60,17 +60,17 @@ func (c *chatServiceClient) JoinChat(ctx context.Context, in *User, opts ...grpc
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_JoinChatClient = grpc.ServerStreamingClient[Chat]
 
-func (c *chatServiceClient) BroadcastMessages(ctx context.Context, in *Chat, opts ...grpc.CallOption) (*Empty, error) {
+func (c *chatServiceClient) BroadcastMessage(ctx context.Context, in *Chat, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
-	err := c.cc.Invoke(ctx, ChatService_BroadcastMessages_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ChatService_BroadcastMessage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *chatServiceClient) LeaveChat(ctx context.Context, in *User, opts ...grpc.CallOption) (*Empty, error) {
+func (c *chatServiceClient) LeaveChat(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, ChatService_LeaveChat_FullMethodName, in, out, cOpts...)
@@ -84,9 +84,9 @@ func (c *chatServiceClient) LeaveChat(ctx context.Context, in *User, opts ...grp
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
 type ChatServiceServer interface {
-	JoinChat(*User, grpc.ServerStreamingServer[Chat]) error
-	BroadcastMessages(context.Context, *Chat) (*Empty, error)
-	LeaveChat(context.Context, *User) (*Empty, error)
+	JoinChat(*UserRequest, grpc.ServerStreamingServer[Chat]) error
+	BroadcastMessage(context.Context, *Chat) (*Empty, error)
+	LeaveChat(context.Context, *UserRequest) (*Empty, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -97,13 +97,13 @@ type ChatServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedChatServiceServer struct{}
 
-func (UnimplementedChatServiceServer) JoinChat(*User, grpc.ServerStreamingServer[Chat]) error {
+func (UnimplementedChatServiceServer) JoinChat(*UserRequest, grpc.ServerStreamingServer[Chat]) error {
 	return status.Errorf(codes.Unimplemented, "method JoinChat not implemented")
 }
-func (UnimplementedChatServiceServer) BroadcastMessages(context.Context, *Chat) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BroadcastMessages not implemented")
+func (UnimplementedChatServiceServer) BroadcastMessage(context.Context, *Chat) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BroadcastMessage not implemented")
 }
-func (UnimplementedChatServiceServer) LeaveChat(context.Context, *User) (*Empty, error) {
+func (UnimplementedChatServiceServer) LeaveChat(context.Context, *UserRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LeaveChat not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
@@ -128,36 +128,36 @@ func RegisterChatServiceServer(s grpc.ServiceRegistrar, srv ChatServiceServer) {
 }
 
 func _ChatService_JoinChat_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(User)
+	m := new(UserRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ChatServiceServer).JoinChat(m, &grpc.GenericServerStream[User, Chat]{ServerStream: stream})
+	return srv.(ChatServiceServer).JoinChat(m, &grpc.GenericServerStream[UserRequest, Chat]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_JoinChatServer = grpc.ServerStreamingServer[Chat]
 
-func _ChatService_BroadcastMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ChatService_BroadcastMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Chat)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).BroadcastMessages(ctx, in)
+		return srv.(ChatServiceServer).BroadcastMessage(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChatService_BroadcastMessages_FullMethodName,
+		FullMethod: ChatService_BroadcastMessage_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).BroadcastMessages(ctx, req.(*Chat))
+		return srv.(ChatServiceServer).BroadcastMessage(ctx, req.(*Chat))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ChatService_LeaveChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(User)
+	in := new(UserRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func _ChatService_LeaveChat_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: ChatService_LeaveChat_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).LeaveChat(ctx, req.(*User))
+		return srv.(ChatServiceServer).LeaveChat(ctx, req.(*UserRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -182,8 +182,8 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ChatServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "BroadcastMessages",
-			Handler:    _ChatService_BroadcastMessages_Handler,
+			MethodName: "BroadcastMessage",
+			Handler:    _ChatService_BroadcastMessage_Handler,
 		},
 		{
 			MethodName: "LeaveChat",
