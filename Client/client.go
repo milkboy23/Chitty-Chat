@@ -118,7 +118,6 @@ func leaveChat(client proto.ChatServiceClient) {
 
 func broadcastMessage(client proto.ChatServiceClient, userInput string) {
 	message := &proto.Chat{Username: username, Message: userInput, Timestamp: -1}
-	log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
 
 	_, broadcastErr := client.BroadcastMessage(context.Background(), message)
 	if broadcastErr != nil {
