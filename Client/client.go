@@ -75,10 +75,10 @@ func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
 func listenToStream(stream proto.ChatService_JoinChatClient) {
 	for {
 		message, chatStreamErr := stream.Recv()
-		if chatStreamErr == io.EOF {
+		if chatStreamErr == io.EOF { // This is still broken and doesn't make any sense
 			log.Printf("Server closed the stream")
 			//programFinished <- true
-			continue
+			return
 		}
 		if chatStreamErr != nil {
 			log.Fatalf("Error receiving message | %v", chatStreamErr)
@@ -97,24 +97,31 @@ func listenForInput(client proto.ChatServiceClient) {
 		}
 
 		if strings.ToLower(userInput) == "leave" {
-			user := &proto.UserRequest{Username: username, Timestamp: -1}
-			_, leaveErr := client.LeaveChat(context.Background(), user)
-			if leaveErr != nil {
-				log.Fatalf("Could not leave chat | %v", leaveErr)
-			}
-			log.Print("Successfully left chat")
-
+			leaveChat(client)
 			programFinished <- true
 			return
 		}
 
-		message := &proto.Chat{Username: username, Message: userInput, Timestamp: -1}
-		log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
-
-		_, broadcastErr := client.BroadcastMessage(context.Background(), message)
-		if broadcastErr != nil {
-			log.Fatalf("Error Broadcasting Message | %v", broadcastErr)
-		}
-		log.Print("Successfully broadcast message")
+		broadcastMessage(client, userInput)
 	}
+}
+
+func leaveChat(client proto.ChatServiceClient) {
+	user := &proto.UserRequest{Username: username, Timestamp: -1}
+	_, leaveErr := client.LeaveChat(context.Background(), user)
+	if leaveErr != nil {
+		log.Fatalf("Could not leave chat | %v", leaveErr)
+	}
+	log.Print("Successfully left chat")
+}
+
+func broadcastMessage(client proto.ChatServiceClient, userInput string) {
+	message := &proto.Chat{Username: username, Message: userInput, Timestamp: -1}
+	log.Printf("%d | %s: %s", message.Timestamp, message.Username, message.Message)
+
+	_, broadcastErr := client.BroadcastMessage(context.Background(), message)
+	if broadcastErr != nil {
+		log.Fatalf("Error Broadcasting Message | %v", broadcastErr)
+	}
+	log.Print("Successfully broadcast message")
 }
