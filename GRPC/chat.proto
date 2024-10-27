@@ -4,6 +4,7 @@ option go_package = "/";
 service ChatService {
     rpc JoinChat (UserRequest) returns (stream Chat);
     rpc BroadcastMessage (Chat) returns (Empty);
+    rpc LeaveChat(UserRequest) returns (Empty);
 }
 
 message Chat {
