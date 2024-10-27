@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -72,11 +73,23 @@ func closeClient(connection *grpc.ClientConn, client proto.ChatServiceClient) {
 func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
 	Timestamp++
 	user := proto.UserRequest{Username: username, Timestamp: Timestamp}
+
 	chatStream, joinErr := client.JoinChat(context.Background(), &user)
 	if joinErr != nil {
 		log.Fatalf("Could not join chat | %v", joinErr)
 	}
-	log.Printf("Chat successfully joined as %s at Lamport time %d", user.Username, Timestamp)
+
+	md, metadataErr := chatStream.Header()
+	if metadataErr != nil {
+		log.Fatalf("Could not retrieve metadata | %v", metadataErr)
+	}
+
+	if serverTimestamp, ok := md["lamport-timestamp"]; ok && len(serverTimestamp) > 0 {
+		timestampInt, _ := strconv.Atoi(serverTimestamp[0])
+		actualTimestamp := timestampInt - 1
+		Timestamp = int32(actualTimestamp)
+		log.Printf("Chat successfully joined as %s at Lamport time %d", user.Username, Timestamp)
+	}
 
 	return chatStream
 }

@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -66,6 +67,9 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 
 	maxTimestamp := max(user.Timestamp, server.lamportTime)
 	server.lamportTime = maxTimestamp + 1
+
+	md := metadata.Pairs("lamport-timestamp", fmt.Sprintf("%d", server.lamportTime))
+	stream.SetHeader(md)
 
 	newUserClient := &Client{username: user.Username, stream: stream}
 	server.clients[user.Username] = newUserClient
