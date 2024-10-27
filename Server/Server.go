@@ -55,9 +55,8 @@ func (server *ChatServer) StartServer() {
 
 func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatService_JoinChatServer) error {
 	_, userAlreadyJoined := server.clients[user.Username]
-	log.Printf("User %s is joining", user.Username)
 	if userAlreadyJoined {
-		log.Printf("User %s has already joined, ignoring...", user.Username)
+		log.Printf("User %s has already joined, but is requesting to join again, ignoring...", user.Username)
 		return nil
 	}
 
@@ -103,8 +102,6 @@ func (server *ChatServer) LeaveChat(username string) {
 func (server *ChatServer) broadcastMessage(message *proto.Chat) {
 	log.Printf("Broadcasting message: '%d | %s: %s'", message.Timestamp, message.Username, message.Message)
 	for username, userConnection := range server.clients {
-		log.Printf("Sending to %s", username)
-
 		sendErr := userConnection.stream.Send(message)
 		if sendErr != nil {
 			log.Printf("Failed to send message to %s | %v", username, sendErr)
