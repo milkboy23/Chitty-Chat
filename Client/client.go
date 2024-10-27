@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -34,7 +33,11 @@ func main() {
 
 	<-programFinished
 
-	closeClient(clientConnection, client)
+	closeClient(clientConnection)
+}
+
+func updateTimestamp(incomingTimestamp int32) {
+	Timestamp = max(incomingTimestamp, Timestamp) + 1
 }
 
 func getUsername() {
@@ -45,7 +48,6 @@ func getUsername() {
 }
 
 func startClient() (*grpc.ClientConn, proto.ChatServiceClient) {
-	Timestamp++
 	portString := fmt.Sprintf(":%d", port)
 	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
 	connection, connectionEstablishErr := grpc.NewClient(portString, dialOptions)
@@ -56,14 +58,7 @@ func startClient() (*grpc.ClientConn, proto.ChatServiceClient) {
 	return connection, proto.NewChatServiceClient(connection)
 }
 
-func closeClient(connection *grpc.ClientConn, client proto.ChatServiceClient) {
-
-	Timestamp++
-	user := proto.UserRequest{Username: username, Timestamp: Timestamp}
-	_, leaveErr := client.LeaveChat(context.Background(), &user)
-	if leaveErr != nil {
-		log.Fatalf("Could not leave chat | %v", leaveErr)
-	}
+func closeClient(connection *grpc.ClientConn) {
 	connectionCloseErr := connection.Close()
 	if connectionCloseErr != nil {
 		log.Fatalf("Could not close connection | %v", connectionCloseErr)
@@ -73,22 +68,11 @@ func closeClient(connection *grpc.ClientConn, client proto.ChatServiceClient) {
 func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
 	Timestamp++
 	user := proto.UserRequest{Username: username, Timestamp: Timestamp}
+	log.Printf("Joining chat as %s at Lamport time %d", user.Username, Timestamp)
 
 	chatStream, joinErr := client.JoinChat(context.Background(), &user)
 	if joinErr != nil {
 		log.Fatalf("Could not join chat | %v", joinErr)
-	}
-
-	md, metadataErr := chatStream.Header()
-	if metadataErr != nil {
-		log.Fatalf("Could not retrieve metadata | %v", metadataErr)
-	}
-
-	if serverTimestamp, ok := md["lamport-timestamp"]; ok && len(serverTimestamp) > 0 {
-		timestampInt, _ := strconv.Atoi(serverTimestamp[0])
-		actualTimestamp := timestampInt - 1
-		Timestamp = int32(actualTimestamp)
-		log.Printf("Chat successfully joined as %s at Lamport time %d", user.Username, Timestamp)
 	}
 
 	return chatStream
@@ -106,10 +90,9 @@ func listenToStream(stream proto.ChatService_JoinChatClient) {
 			log.Fatalf("Error receiving message | %v", chatStreamErr)
 		}
 
-		maxTimestamp := max(message.Timestamp, Timestamp)
-		Timestamp = maxTimestamp + 1
+		updateTimestamp(message.Timestamp)
 
-		log.Printf(" %s: %s", message.Username, message.Message)
+		log.Printf("%d | %s: %s", Timestamp, message.Username, message.Message)
 	}
 }
 

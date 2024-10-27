@@ -9,7 +9,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -22,9 +21,8 @@ type ChatServer struct {
 }
 
 type Client struct {
-	username  string
-	stream    proto.ChatService_JoinChatServer
-	Timestamp int32
+	username string
+	stream   proto.ChatService_JoinChatServer
 }
 
 func main() {
@@ -39,8 +37,11 @@ func NewChatServer() *ChatServer {
 	}
 }
 
+func (server *ChatServer) updateTimestamp(incomingTimestamp int32) {
+	server.lamportTime = max(incomingTimestamp, server.lamportTime) + 1
+}
+
 func (server *ChatServer) StartServer() {
-	server.lamportTime++
 	portString := fmt.Sprintf(":%d", port)
 	listener, listenErr := net.Listen("tcp", portString)
 	if listenErr != nil {
@@ -64,16 +65,12 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 		return nil
 	}
 
-	maxTimestamp := max(user.Timestamp, server.lamportTime)
-	server.lamportTime = maxTimestamp + 1
-
-	md := metadata.Pairs("lamport-timestamp", fmt.Sprintf("%d", server.lamportTime))
-	stream.SetHeader(md)
-
 	newUserClient := &Client{username: user.Username, stream: stream}
 	server.clients[user.Username] = newUserClient
 
-	joinMessage := fmt.Sprintf("User %s has joined the chat at Lamport time %d", user.Username, server.lamportTime)
+	server.updateTimestamp(user.Timestamp)
+
+	joinMessage := fmt.Sprintf("User %s join request, received at Lamport time %d", user.Username, server.lamportTime)
 	log.Print(joinMessage)
 
 	joinMsg := &proto.Chat{
@@ -82,23 +79,24 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 		Timestamp: server.lamportTime,
 	}
 	server.broadcastMessage(joinMsg)
+
 	select {
 	case <-stream.Context().Done():
+		user.Timestamp = server.lamportTime
+		server.leaveChat(user)
 		return status.Error(codes.Canceled, "Stream was closed")
 	}
 }
 
 func (server *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat) (*proto.Empty, error) {
+	server.updateTimestamp(chat.Timestamp)
 	server.broadcastMessage(chat)
 
 	return &proto.Empty{}, nil
 }
 
-func (server *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest) (*proto.Empty, error) {
-
-	maxTimestamp := max(user.Timestamp, server.lamportTime)
-	server.lamportTime = maxTimestamp + 1
-
+func (server *ChatServer) leaveChat(user *proto.UserRequest) {
+	server.updateTimestamp(user.Timestamp)
 	delete(server.clients, user.Username)
 
 	leaveMessage := fmt.Sprintf("User %s left the chat at Lamport time %d", user.Username, server.lamportTime)
@@ -110,14 +108,13 @@ func (server *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest
 		Timestamp: server.lamportTime,
 	}
 	server.broadcastMessage(leaveMsg)
-
-	return &proto.Empty{}, nil
 }
 
 func (server *ChatServer) broadcastMessage(message *proto.Chat) {
 	server.lamportTime++
 	message.Timestamp = server.lamportTime
 	log.Printf("Broadcasting message at Lamport time %d: '%s: %s'", message.Timestamp, message.Username, message.Message)
+
 	for username, userConnection := range server.clients {
 		sendErr := userConnection.stream.Send(message)
 		if sendErr != nil {
