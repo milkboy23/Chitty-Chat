@@ -74,7 +74,7 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 	newUserClient := &Client{username: user.Username, stream: stream}
 	server.clients[user.Username] = newUserClient
 
-	joinMessage := fmt.Sprintf("User %s has joined the chat at Lamport time %d", user.Username, server.lamportTime)
+	joinMessage := fmt.Sprintf("Server has received join request from %s at Lamport time %d", user.Username, server.lamportTime)
 	log.Print(joinMessage)
 
 	joinMsg := &proto.Chat{
@@ -118,7 +118,7 @@ func (server *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest
 func (server *ChatServer) broadcastMessage(message *proto.Chat) {
 	server.lamportTime++
 	message.Timestamp = server.lamportTime
-	log.Printf("Broadcasting message at Lamport time %d: '%s: %s'", message.Timestamp, message.Username, message.Message)
+	log.Printf("Broadcasting message received at Lamport time %d: '%s: %s'", message.Timestamp, message.Username, message.Message)
 	for username, userConnection := range server.clients {
 		log.Printf("Sending to %s", username)
 

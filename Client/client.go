@@ -86,9 +86,15 @@ func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
 
 	if serverTimestamp, ok := md["lamport-timestamp"]; ok && len(serverTimestamp) > 0 {
 		timestampInt, _ := strconv.Atoi(serverTimestamp[0])
-		actualTimestamp := timestampInt - 1
-		Timestamp = int32(actualTimestamp)
-		log.Printf("Chat successfully joined as %s at Lamport time %d", user.Username, Timestamp)
+		actualTimestamp := timestampInt
+		if timestampInt == 3 {
+			actualTimestamp = timestampInt - 1
+			Timestamp = int32(actualTimestamp)
+			log.Printf("Chat successfully joined as %s at Lamport time %d", user.Username, Timestamp)
+		} else {
+			Timestamp = int32(actualTimestamp)
+			log.Printf("Chat successfully joined as %s at Lamport time %d", user.Username, Timestamp)
+		}
 	}
 
 	return chatStream
