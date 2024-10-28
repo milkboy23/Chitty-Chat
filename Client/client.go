@@ -126,14 +126,24 @@ func listenForInput(client proto.ChatServiceClient) {
 		}
 
 		if strings.ToLower(userInput) == "leave" {
-			Timestamp++
-			log.Printf("LT%d | Successfully left the chat", Timestamp)
+			leaveChat(client)
 			programFinished <- true
 			return
 		}
 
 		broadcastMessage(client, userInput)
 	}
+}
+
+func leaveChat(client proto.ChatServiceClient) {
+	Timestamp++
+	user := &proto.UserRequest{Username: username, Timestamp: Timestamp}
+	_, leaveErr := client.LeaveChat(context.Background(), user)
+	if leaveErr != nil {
+		log.Fatalf("Could not leave chat | %v", leaveErr)
+	}
+
+	log.Printf("LT%d | Successfully left the chat", Timestamp)
 }
 
 func broadcastMessage(client proto.ChatServiceClient, userInput string) {

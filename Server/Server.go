@@ -105,7 +105,18 @@ func (server *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat
 	return &proto.Empty{}, nil
 }
 
+func (server *ChatServer) LeaveChat(ctx context.Context, user *proto.UserRequest) (*proto.Empty, error) {
+	server.leaveChat(user)
+
+	return &proto.Empty{}, nil
+}
+
 func (server *ChatServer) leaveChat(user *proto.UserRequest) {
+	_, userExists := server.clients[user.Username]
+	if !userExists {
+		return
+	}
+
 	server.updateTimestamp(user.Timestamp)
 	delete(server.clients, user.Username)
 
