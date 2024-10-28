@@ -69,7 +69,6 @@ func closeClient(connection *grpc.ClientConn) {
 func joinChat(client proto.ChatServiceClient) proto.ChatService_JoinChatClient {
 	Timestamp++
 	user := proto.UserRequest{Username: username, Timestamp: Timestamp}
-	//log.Printf("LT%d | Joining chat as %s", Timestamp, user.Username)
 
 	chatStream, joinErr := client.JoinChat(context.Background(), &user)
 	if joinErr != nil {
