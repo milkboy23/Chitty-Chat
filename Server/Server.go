@@ -4,8 +4,10 @@ import (
 	proto "Chitty-Chat/GRPC"
 	"context"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"log"
 	"net"
+	"strconv"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -50,7 +52,7 @@ func (server *ChatServer) StartServer() {
 
 	grpcServer := grpc.NewServer()
 	proto.RegisterChatServiceServer(grpcServer, server)
-	log.Printf("ChatService server has started at time %d", server.lamportTime)
+	log.Printf("LT%d | ChatService server has started", server.lamportTime)
 
 	serveListenerErr := grpcServer.Serve(listener)
 	if serveListenerErr != nil {
@@ -65,12 +67,19 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 		return nil
 	}
 
+	md := metadata.Pairs("lamport-timestamp", strconv.Itoa(int(server.lamportTime)))
+	streamHeaderErr := stream.SetHeader(md)
+	if streamHeaderErr != nil {
+		log.Fatalf("Failed to set header on stream | %v", streamHeaderErr)
+	}
+
 	newUserClient := &Client{username: user.Username, stream: stream}
 	server.clients[user.Username] = newUserClient
 
+	server.lamportTime++
 	server.updateTimestamp(user.Timestamp)
 
-	joinMessage := fmt.Sprintf("User %s join request, received at Lamport time %d", user.Username, server.lamportTime)
+	joinMessage := fmt.Sprintf("User %s join request received at LT%d", user.Username, server.lamportTime)
 	log.Print(joinMessage)
 
 	joinMsg := &proto.Chat{
@@ -90,6 +99,7 @@ func (server *ChatServer) JoinChat(user *proto.UserRequest, stream proto.ChatSer
 
 func (server *ChatServer) BroadcastMessage(ctx context.Context, chat *proto.Chat) (*proto.Empty, error) {
 	server.updateTimestamp(chat.Timestamp)
+	log.Printf("LT%d | Message received", server.lamportTime)
 	server.broadcastMessage(chat)
 
 	return &proto.Empty{}, nil
@@ -99,7 +109,7 @@ func (server *ChatServer) leaveChat(user *proto.UserRequest) {
 	server.updateTimestamp(user.Timestamp)
 	delete(server.clients, user.Username)
 
-	leaveMessage := fmt.Sprintf("User %s left the chat at Lamport time %d", user.Username, server.lamportTime)
+	leaveMessage := fmt.Sprintf("User %s leave request received at LT%d", user.Username, server.lamportTime)
 	log.Print(leaveMessage)
 
 	leaveMsg := &proto.Chat{
@@ -113,8 +123,7 @@ func (server *ChatServer) leaveChat(user *proto.UserRequest) {
 func (server *ChatServer) broadcastMessage(message *proto.Chat) {
 	server.lamportTime++
 	message.Timestamp = server.lamportTime
-	log.Printf("Broadcasting message at Lamport time %d: '%s: %s'", message.Timestamp, message.Username, message.Message)
-
+	log.Printf("LT%d | Broadcasting: '%s: %s'", server.lamportTime, message.Username, message.Message)
 	for username, userConnection := range server.clients {
 		sendErr := userConnection.stream.Send(message)
 		if sendErr != nil {
